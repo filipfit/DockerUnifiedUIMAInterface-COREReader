@@ -1,21 +1,17 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
 import com.opencsv.exceptions.CsvValidationException;
-import org.apache.uima.collection.CollectionReader;
-import org.apache.uima.collection.CollectionReaderDescription;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
-import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.html.google.DUUIHTMLGoogleSERPReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 
 import java.io.File;
@@ -23,8 +19,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.ArrayList;
+import java.util.List;
 
 class DUUICoreReaderTest {
     @Test
@@ -46,7 +42,7 @@ class DUUICoreReaderTest {
     }
 
     @Test
-    public void testExtraction() throws Exception {
+    public void testExtractByValue() throws Exception {
         TSVTable t = new TSVTable("./testTables/screenshotsTable.tsv");
         t = t.extractByValue("page_id", "24111");
         t.print();
@@ -54,11 +50,10 @@ class DUUICoreReaderTest {
 
     @Test
     public void testToJcas() throws Exception {
-//        TSVTable table = new TSVTable("testTables/screenshotsTable.tsv");
         DUUICoreReader reader = new DUUICoreReader();
 
-        JCas jcas = JCasFactory.createJCas(reader.tsDesc);
-        reader.getNext(jcas);
+        JCas jcas = JCasFactory.createJCas();
+        reader.getNextCas(jcas);
 
         // Create annotated output xmi file
         File xmiFile = new File("TEMP_out/24111.xmi");
@@ -69,6 +64,53 @@ class DUUICoreReaderTest {
         }
         System.out.println("XMI file created: " + xmiFile.getAbsolutePath());
         System.out.println("24111");
+    }
+
+    @Test
+    public void testHasNext() throws Exception {
+        DUUICoreReader reader = new DUUICoreReader();
+        JCas jcas = JCasFactory.createJCas();
+        System.out.println("testHasNext temporaryPageIds.size: " + reader.pageIDs.size());
+
+        System.out.println("testHasNext: " + reader.hasNext() + " atIndex: " + reader.nextIndex);
+        reader.getNextCas(jcas);
+        System.out.println("testHasNext: " + reader.hasNext() + " atIndex: " + reader.nextIndex);
+        reader.getNextCas(jcas);
+        System.out.println("testHasNext: " + reader.hasNext() + " atIndex: " + reader.nextIndex);
+        reader.getNextCas(jcas);
+        System.out.println("testHasNext: " + reader.hasNext() + " atIndex: " + reader.nextIndex);
+        reader.getNextCas(jcas);
+    }
+
+    @Test
+    public void testGetAllPageIDs() throws Exception {
+        List<String> ids = new DUUICoreReader().populatePageIDs();
+        System.out.println(ids);
+    }
+
+    @Test
+    public void testTemp() throws CsvValidationException, IOException, ResourceInitializationException, CASException {
+        var reader = new DUUICoreReader();
+        JCas jcas = JCasFactory.createJCas();
+        reader.annotateSession(jcas, "24111");
+    }
+
+    @Test
+    public void testMapUsersToPages() throws Exception {
+        TSVTable pages = new TSVTable("testTables/pageTable.tsv");
+        TSVTable sessions = new TSVTable("testTables/sessionsTable.tsv");
+        List<String> pageIDs = new DUUICoreReader().populatePageIDs();
+        List<List<String>> pageSessionUser = new ArrayList<>();
+
+        for (var id : pageIDs) {
+            String sessionID = pages.extractByValue("id", id).getCell("session_id", 0);
+            String userID = sessions.extractByValue("id", sessionID).getCell("user_id", 0);
+            List<String> row = new ArrayList<>();
+            row.add(id);
+            row.add(sessionID);
+            row.add(userID);
+            pageSessionUser.add(row);
+        }
     }
 
     @Test void testReaderInPipeline() throws Exception {
@@ -88,13 +130,6 @@ class DUUICoreReaderTest {
 //                .createTypeSystemDescriptionFromPath(
 //                        "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
 //                );
-
-        // Reader: CoreReader
-        DUUIAsynchronousProcessor reader = new DUUIAsynchronousProcessor(
-                new DUUICoreReader(),
-                new DUUICoreReader()
-        );
-
 //        CollectionReaderDescription reader =
 //                CollectionReaderFactory.createReaderDescription(
 //                        DUUICoreReader.class,
@@ -102,6 +137,12 @@ class DUUICoreReaderTest {
 //                        DUUICoreReader.PARAM_SOURCE_LOCATION, dummySource.toString(),
 //                        DUUICoreReader.PARAM_PATTERNS, "[+]*.*"
 //                );
+
+        // Reader: CoreReader
+
+        DUUIAsynchronousProcessor reader = new DUUIAsynchronousProcessor(
+                new DUUICoreReader()
+        );
 
         // XMI Writer
         composer.add(new DUUIUIMADriver.Component(
@@ -111,12 +152,11 @@ class DUUICoreReaderTest {
                         , XmiWriter.PARAM_PRETTY_PRINT, true
                         , XmiWriter.PARAM_OVERWRITE, true
                         , XmiWriter.PARAM_VERSION, "1.1"
-                        , XmiWriter.PARAM_COMPRESSION, "GZIP"
+                        , XmiWriter.PARAM_COMPRESSION, "NONE"
                 )
         ));
 
         composer.run(reader, "core_reader_test");
         composer.shutdown();
     }
-
 }

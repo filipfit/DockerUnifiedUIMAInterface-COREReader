@@ -1,6 +1,45 @@
 <typeSystemDescription xmlns="http://uima.apache.org/resourceSpecifier">
     <description>Types for CORE data.</description>
     <types>
+
+        <typeDescription>
+            <name>org.texttechnologylab.annotation.corepagetypes.HTMLData</name>
+            <supertypeName>uima.cas.AnnotationBase</supertypeName>
+            <features>
+
+                <featureDescription>
+                    <name>id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+                <featureDescription>
+                    <name>source</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+                <featureDescription>
+                    <name>timestamp</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+                <featureDescription>
+                    <name>page_id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+                <featureDescription>
+                    <name>assessment_phase_in_session_id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+                <featureDescription>
+                    <name>session_id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+            </features>
+        </typeDescription>
+
         <typeDescription>
             <name>org.texttechnologylab.annotation.corepagetypes.Page</name>
             <supertypeName>uima.cas.AnnotationBase</supertypeName>
@@ -73,23 +112,18 @@
                 </featureDescription>
 
                 <featureDescription>
-                    <name>endTime</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
                     <name>fromX</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
                 </featureDescription>
 
                 <featureDescription>
                     <name>fromY</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
                 </featureDescription>
 
                 <featureDescription>
                     <name>toX</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
                 </featureDescription>
 
                 <featureDescription>
@@ -99,6 +133,11 @@
 
                 <featureDescription>
                     <name>startTime</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+
+                <featureDescription>
+                    <name>endTime</name>
                     <rangeTypeName>uima.cas.String</rangeTypeName>
                 </featureDescription>
 

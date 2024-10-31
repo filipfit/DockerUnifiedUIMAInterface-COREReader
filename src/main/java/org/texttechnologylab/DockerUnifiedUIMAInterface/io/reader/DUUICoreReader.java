@@ -6,15 +6,16 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 
-import org.apache.uima.collection.CollectionException;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.fit.descriptor.TypeCapability;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
-import org.texttechnologylab.annotation.corepagetypes.Screenshot;
+import org.texttechnologylab.annotation.corepagetypes.*;
 
 
 import java.io.FileReader;
@@ -22,12 +23,19 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
+// Temporarily used class for managin tab-separated-data (.tsv) files, located in ./testTables
 class TSVTable {
     private String filePath;
     public List<String> headers;
     public List<List<String>> table;
     public Map<String, List<String>> tableMap;
 
+    /**
+     * Returns a hashtable-represantation of the of this.table. The Keys are the column headers and the values are lists
+     * of all values in the column.
+     * @return  Hashtable-Representation of this.table
+     */
     public Map<String, List<String>> getTableMap() {
         if (tableMap != null) return tableMap;
         Map<String, List<String>> tableMap = new HashMap<>();
@@ -52,6 +60,12 @@ class TSVTable {
         return this.tableMap;
     }
 
+    /**
+     * Constructs a TSVTable from the .tsv file in "filepath".
+     * @param filePath  Path to .tsv file with data
+     * @throws IOException
+     * @throws CsvValidationException
+     */
     public TSVTable(String filePath) throws IOException, CsvValidationException {
         this.table = new ArrayList<>();
         this.filePath = filePath;
@@ -68,6 +82,11 @@ class TSVTable {
         }
     }
 
+    /**
+     * Constructs a TSVTable from a 2D  nested list. Each nested list is considered a row. Each String is considered
+     * data in a table-cell. The first nested list should contain the column headers.
+     * @param table     2D nested list with each String being a table-cell datum.
+     */
     public TSVTable(List<List<String>> table) {
         List<List<String>> newTable = new ArrayList<>(table);
         this.headers = newTable.get(0);
@@ -75,21 +94,54 @@ class TSVTable {
         this.table = newTable;
     }
 
-    public List<String> getRow(Integer rowIndex) {
-        return new ArrayList<>(table.get(rowIndex));
+    /**
+     * Constrcts a TSVTable from a list of column headers and a 2D nested list of table-data.
+     * @param headers   Column headers of the table
+     * @param table     2D nested list with each String being a table-cell datum
+     */
+    public TSVTable(List<String> headers, List<List<String>> table) {
+        this.headers = headers;
+        this.table = table;
     }
 
+    /**
+     * Returns a copy of a row from the table as a list of strings.
+     * @param rowIndex      Index of the row.
+     * @return              Row data as list of strings
+     */
+    public TSVTable getRow(Integer rowIndex) {
+        List<List<String>> row = new ArrayList<>();
+        row.add(this.table.get(rowIndex));
+        return new TSVTable(this.headers, row);
+    }
+
+    public List<String> getColumn(Integer columnIndex) {
+        var tableMap = this.getTableMap();
+        return tableMap.get(this.headers.get(columnIndex));
+    }
+
+    public List<String> getColumn(String columnHeader) {
+        var tableMap = this.getTableMap();
+        return tableMap.get(columnHeader);
+    }
+
+    /**
+     * Returns the size of the 2D array of table data as 2 Integers in an array as such:
+     * {number-of-rows, number-of-columns}
+     * @return      Number of rows and columns of this.table in an array.
+     */
     public List<Integer> getSize() {
         Integer rows = table.size();
         Integer cols = headers.size();
         return Arrays.asList(rows, cols);
     }
 
-    public TSVTable(List<String> headers, List<List<String>> table) {
-        this.headers = headers;
-        this.table = table;
-    }
-
+    /**
+     * Gets a single table-cell of data.
+     * @param header    Column header of the cell
+     * @param rowIndex  Row index of the cell
+     * @return          Single table-cell datum
+     */
     public String getCell(String header, Integer rowIndex) {
         Integer colIndex = this.headers.indexOf(header);
         return this.table.get(rowIndex).get(colIndex);
@@ -107,6 +159,12 @@ class TSVTable {
         return new TSVTable(new ArrayList<>(this.headers), newTable);
     }
 
+    /**
+     * 
+     * @param row
+     * @return
+     * @throws Exception
+     */
     public TSVTable addRow(List<String> row) throws Exception {
         if (this.headers.size() != row.size()) { throw new Exception("TSVTable.addRow: Column numbers do not match!"); }
         this.table.add(new ArrayList<>(row));
@@ -130,19 +188,22 @@ class TSVTable {
      * @return              TSVTable with all the rows whose value in column "header" match "value".
      * @throws Exception
      */
-    public TSVTable extractByValue(String header, String value) throws Exception {
+    public TSVTable extractByValue(String header, String value) {
         TSVTable newTable = new TSVTable( new ArrayList<>(this.headers), new ArrayList<>());
         Integer headerIndex = this.headers.indexOf(header);
 
-        for (List<String> row : this.table) {
-            String columnValue = row.get(headerIndex);
-            if (columnValue.equals(value))  newTable.addRow(row);
+        try {
+            for (List<String> row : this.table) {
+                String columnValue = row.get(headerIndex);
+                if (columnValue.equals(value)) newTable.addRow(row);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
         return newTable;
     }
 }
-
-//CollectionReader
 
 @TypeCapability(
         outputs = { "org.texttechnologylab.annotation.corepagetypes.Screenshot" }
@@ -151,49 +212,15 @@ public class DUUICoreReader
 //        extends JCasResourceCollectionReader_ImplBase
         implements DUUICollectionReader
 {
-    private List<String> temporaryPageIds = Arrays.asList("24111", "15122", "24113", "24113");
-    private TSVTable table;
-    private Integer atIndex = 0;
+    public List<String> pageIDs = Arrays.asList("24111", "15122", "24113"); // TODO: TEMPORARY
+    private TSVTable pageTable;
+    private TSVTable screenshotsTable;
+    private TSVTable htmlTable;
+    private TSVTable scrolleventTable;
+    private TSVTable sessionDataTable;
+    private TSVTable userDataTable;
+    public Integer nextIndex = 0;
     TypeSystemDescription tsDesc;
-
-    public DUUICoreReader() throws CsvValidationException, IOException {
-        this.table = new TSVTable("testTables/screenshotsTable.tsv");
-        this.tsDesc = TypeSystemDescriptionFactory
-                .createTypeSystemDescriptionFromPath(
-                        "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
-                );
-    }
-
-//    public DUUICoreReader(TSVTable table) throws CsvValidationException, IOException {
-//        this.table = table;
-//        this.tsDesc = TypeSystemDescriptionFactory
-//                .createTypeSystemDescriptionFromPath(
-//                        "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
-//                );
-//    }
-
-    public void toJcas(JCas jcas) throws Exception {
-//        JCas jcas = JCasFactory.createJCas(tsDesc);
-        System.out.println("PAGE_ID: " + this.temporaryPageIds.get(this.atIndex));
-
-        TSVTable pageScreenshots = table.extractByValue("page_id", this.temporaryPageIds.get(this.atIndex));
-        Map<String, List<String>> tableMap = pageScreenshots.getTableMap();
-        pageScreenshots.print();
-
-        for (var i = 0; i < pageScreenshots.getSize().get(0); i++) {
-            Screenshot shotAnno = new Screenshot(jcas);
-            shotAnno.setId(tableMap.get("id").get(i));
-            shotAnno.setReason(tableMap.get("reason").get(i));
-            shotAnno.setTimestamp(tableMap.get("timestamp").get(i));
-            shotAnno.setPage_id(tableMap.get("page_id").get(i));
-            shotAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
-            shotAnno.setSession_id(tableMap.get("session_id").get(i));
-
-
-            shotAnno.addToIndexes();
-        }
-        this.atIndex++;
-    }
 
     @Override
     public AdvancedProgressMeter getProgress() {
@@ -211,21 +238,210 @@ public class DUUICoreReader
 
     @Override
     public boolean hasNext() {
-        return (atIndex + 1) >= temporaryPageIds.size();
+        return !(nextIndex >= pageIDs.size());
     }
 
     @Override
     public long getSize() {
-        return temporaryPageIds.size();
+        return pageIDs.size();
     }
 
     @Override
     public long getDone() {
-        return atIndex + 1;
+        return nextIndex + 1;
     }
 
-//    @Override
-    public void getNext(JCas aJCas) throws IOException, CollectionException {
-        this.getNextCas(aJCas);
+    public DUUICoreReader() throws CsvValidationException, IOException {
+        this.pageTable = new TSVTable("testTables/pageTable.tsv");
+        this.screenshotsTable = new TSVTable("testTables/screenshotsTable.tsv");
+        this.htmlTable = new TSVTable("testTables/htmlTable.tsv");
+        this.scrolleventTable = new TSVTable("testTables/scrollTable.tsv");
+        this.sessionDataTable = new TSVTable("testTables/sessionsTable.tsv");
+        this.userDataTable = new TSVTable("testTables/neobridgeUserTable.tsv");
+        this.populatePageIDs();
+        this.tsDesc = TypeSystemDescriptionFactory
+                .createTypeSystemDescriptionFromPath(
+                        "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
+                );
+    }
+
+    public List<String> populatePageIDs() throws CsvValidationException, IOException {
+        List<String> pageIDs = new TSVTable("testTables/pageTable.tsv").getColumn(0);
+        this.pageIDs = pageIDs;
+        return pageIDs;
+    }
+
+    /**
+     * Returns an array as following: {pageID, sessionID, userID}
+     * Pages 'pageId' > 'sessionID' ->  Sessions 'sessionID' > 'userID'
+     * @return      Nested list where each list contains {pageID, sessionID, userID}
+     * @throws CsvValidationException
+     * @throws IOException
+     */
+    public List<List<String>> mapPagesSessionsUsers() throws CsvValidationException, IOException {
+        TSVTable pages = new TSVTable("testTables/pageTable.tsv");
+        TSVTable sessions = new TSVTable("testTables/sessionsTable.tsv");
+        List<List<String>> result = new ArrayList<>();
+
+        for (var id : this.pageIDs) {
+            String sessionID = pages.extractByValue("id", id).getCell("session_id", 0);
+            String userID = sessions.extractByValue("id", sessionID).getCell("user_id", 0);
+            List<String> row = new ArrayList<>();
+            row.add(id);
+            row.add(sessionID);
+            row.add(userID);
+            result.add(row);
+        }
+        return result;
+    }
+
+    public void addMetadata(JCas jcas, String id) {
+        DocumentMetaData dmd = new DocumentMetaData(jcas);
+        dmd.setDocumentId(id);
+        dmd.setDocumentTitle(id);
+        dmd.addToIndexes();
+    }
+
+    public void annotateAllScreenshotData(JCas jcas, String pageID) throws Exception {
+        TSVTable pageScreenshotData = this.screenshotsTable.extractByValue("page_id", pageID);
+        Map<String, List<String>> tableMap = pageScreenshotData.getTableMap();
+
+        for (var i = 0; i < pageScreenshotData.getSize().get(0); i++) {
+            Screenshot shotAnno = new Screenshot(jcas);
+            shotAnno.setId(tableMap.get("id").get(i));
+            shotAnno.setReason(tableMap.get("reason").get(i));
+            shotAnno.setTimestamp(tableMap.get("timestamp").get(i));
+            shotAnno.setPage_id(tableMap.get("page_id").get(i));
+            shotAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
+            shotAnno.setSession_id(tableMap.get("session_id").get(i));
+            shotAnno.addToIndexes();
+        }
+    }
+
+    public void annotateAllHtmlData(JCas jcas, String pageID) {
+        TSVTable pageHtmlData = this.htmlTable.extractByValue("page_id", pageID);
+        Map<String, List<String>> tableMap = pageHtmlData.getTableMap();
+
+        for (var i = 0; i < pageHtmlData.getSize().get(0); i++) {
+            HTMLData htmlAnno = new HTMLData(jcas);
+            htmlAnno.setId(tableMap.get("id").get(i));
+            htmlAnno.setSource(tableMap.get("source").get(i));
+            htmlAnno.setTimestamp(tableMap.get("timestamp").get(i));
+            htmlAnno.setPage_id(tableMap.get("page_id").get(i));
+            htmlAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
+            htmlAnno.setSession_id(tableMap.get("session_id").get(i));
+            htmlAnno.addToIndexes();
+        }
+    }
+
+    public void annotateAllScrollevents(JCas jcas, String pageID) {
+        TSVTable scrollEventData = this.scrolleventTable.extractByValue("page_id", pageID);
+        Map<String, List<String>> tableMap = scrollEventData.getTableMap();
+
+            for (var i = 0; i < scrollEventData.getSize().get(0); i++) {
+                ScrollEvent scrollAnno = new ScrollEvent(jcas);
+
+                scrollAnno.setId(tableMap.get("id").get(i));
+                scrollAnno.setFromX(Integer.parseInt(tableMap.get("fromX").get(i)));
+                scrollAnno.setFromY(Integer.parseInt(tableMap.get("fromY").get(i)));
+                scrollAnno.setToX(Integer.parseInt(tableMap.get("toX").get(i)));
+                scrollAnno.setToY(Integer.parseInt(tableMap.get("toY").get(i)));
+                scrollAnno.setStartTime(tableMap.get("startTime").get(i));
+                scrollAnno.setEndTime(tableMap.get("endTime").get(i));
+                scrollAnno.setTimestamp(tableMap.get("timestamp").get(i));
+                scrollAnno.setPageId(tableMap.get("page_id").get(i));
+                scrollAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
+                scrollAnno.setSession_id(tableMap.get("session_id").get(i));
+                scrollAnno.addToIndexes();
+            }
+    }
+
+    public void annotatePageData(JCas jcas, String pageID) {
+        Map<String, List<String>> pageDataMap = this.pageTable
+                .extractByValue("id", pageID)
+                .getTableMap();
+
+        Page pageAnno = new Page(jcas);
+
+        pageAnno.setId(pageDataMap.get("id").get(0));
+        pageAnno.setTitle(pageDataMap.get("title").get(0));
+        pageAnno.setUrl(pageDataMap.get("url").get(0));
+        pageAnno.setSession_id(pageDataMap.get("session_id").get(0));
+        pageAnno.setTab_id(pageDataMap.get("tab_id").get(0));
+        pageAnno.setAssessment_phase_in_session_id(pageDataMap.get("assessment_phase_in_session_id").get(0));
+        pageAnno.addToIndexes();
+
+    }
+
+    public void annotateSession(JCas jcas, String pageID) throws CsvValidationException, IOException {
+        /*
+        * From pageID find out the sessionID
+        * Having sessionID get every row from sessionsTable.tsv whose id column equals the sessionID
+        * A Page can only have one session associated with it
+         */
+        List<List<String>> mappedPagesSessions = this.mapPagesSessionsUsers().stream()
+                .filter(arr -> arr.get(0).equals(pageID))
+                .toList();
+        String sessionID = mappedPagesSessions.get(0).get(1); // Nested list, second element
+        // Only the first found row, because a page can only belong to one session
+        Map<String, List<String>> sessionTableMap = this.sessionDataTable
+                .extractByValue("id", sessionID)
+                .getRow(0)
+                .getTableMap();
+
+        UserSession sessionAnno = new UserSession(jcas);
+        sessionAnno.setId(sessionTableMap.get("id").get(0));
+        sessionAnno.setStarted(sessionTableMap.get("started").get(0));
+        sessionAnno.setUseragent(sessionTableMap.get("useragent").get(0));
+        sessionAnno.setWebExtensionKey(sessionTableMap.get("webExtensionKey").get(0));
+        sessionAnno.setUser_id(sessionTableMap.get("user_id").get(0));
+        sessionAnno.addToIndexes();
+    }
+
+    public void annotateUser(JCas jcas, String pageID) throws CsvValidationException, IOException {
+        /*
+        * From pageID find out the sessionID and from sessionID find out userID
+        * Having the userID get every row from neobridgeUserTable.tsv whose id column equals the userID
+        * A Page can only have one user associated with it
+         */
+        List<List<String>> mappedPagesUsers = this.mapPagesSessionsUsers().stream()
+                .filter(arr -> arr.get(0).equals(pageID))
+                .toList();
+        String userID = mappedPagesUsers.get(0).get(2); // Nested list, third element
+        // Only the first found row, because a page can only be associated with one user
+        Map<String, List<String>> userTableMap = this.userDataTable
+                .extractByValue("id", userID)
+                .getRow(0)
+                .getTableMap();
+
+        NeobridgeUser userAnno = new NeobridgeUser(jcas);
+        userAnno.setId(userTableMap.get("id").get(0));
+        userAnno.setCreated(userTableMap.get("created").get(0));
+        userAnno.setEmail(userTableMap.get("email").get(0));
+        userAnno.setOpenId(userTableMap.get("openId").get(0));
+        userAnno.setRoles(userTableMap.get("roles").get(0));
+        userAnno.setUserID(userTableMap.get("userID").get(0));
+        userAnno.setUsername(userTableMap.get("username").get(0));
+        userAnno.setPicture(userTableMap.get("picture").get(0));
+        userAnno.setRealName(userTableMap.get("realName").get(0));
+        userAnno.addToIndexes();
+    }
+
+    public void toJcas(JCas jcas) throws Exception {
+        String currentPageID = this.pageIDs.get(this.nextIndex);
+        TSVTable pageScreenshots = this.screenshotsTable.extractByValue("page_id", currentPageID);
+
+        if (JCasUtil.select(jcas, DocumentMetaData.class).isEmpty()) {
+            this.addMetadata(jcas, currentPageID);
+        }
+
+//        annotateAllScreenshotData(jcas, currentPageID);
+//        annotateAllHtmlData(jcas, currentPageID);
+//        annotateAllScrollevents(jcas, currentPageID);
+//        annotateSession(jcas, currentPageID);
+//        annotateUser(jcas, currentPageID);
+        annotatePageData(jcas, currentPageID);
+
+        this.nextIndex++;
     }
 }
