@@ -84,22 +84,15 @@ class DUUICoreReaderTest {
 
     @Test
     public void testGetAllPageIDs() throws Exception {
-        List<String> ids = new DUUICoreReader().populatePageIDs();
-        System.out.println(ids);
-    }
-
-    @Test
-    public void testTemp() throws CsvValidationException, IOException, ResourceInitializationException, CASException {
-        var reader = new DUUICoreReader();
-        JCas jcas = JCasFactory.createJCas();
-        reader.annotateSession(jcas, "24111");
+        List<String> pageIDs = new TSVTable("TEMP_files/testTables/pageTable.tsv").getColumn(0);
+        System.out.println(pageIDs);
     }
 
     @Test
     public void testMapUsersToPages() throws Exception {
-        TSVTable pages = new TSVTable("testTables/pageTable.tsv");
-        TSVTable sessions = new TSVTable("testTables/sessionsTable.tsv");
-        List<String> pageIDs = new DUUICoreReader().populatePageIDs();
+        TSVTable pages = new TSVTable("TEMP_files/testTables/pageTable.tsv");
+        TSVTable sessions = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
+        List<String> pageIDs = pages.getColumn(0);
         List<List<String>> pageSessionUser = new ArrayList<>();
 
         for (var id : pageIDs) {
@@ -113,9 +106,14 @@ class DUUICoreReaderTest {
         }
     }
 
+    @Test
+    void testGetHTML() throws Exception {
+        DUUICoreReader.getHtmlFileIDs("TEMP_files/TEMP_out/24111.xmi");
+    }
+
     @Test void testReaderInPipeline() throws Exception {
-        Path dummySource = Paths.get("./TEMP_in");
-        Path targetLocation = Paths.get("./TEMP_out");
+        Path dummySource = Paths.get("./TEMP_files/TEMP_in");
+        Path targetLocation = Paths.get("./TEMP_files/TEMP_out");
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)

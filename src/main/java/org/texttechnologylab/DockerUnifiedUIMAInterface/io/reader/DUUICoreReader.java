@@ -7,17 +7,24 @@ import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.descriptor.TypeCapability;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 
+import org.apache.uima.util.XmlCasDeserializer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.annotation.corepagetypes.*;
+import org.xml.sax.SAXException;
 
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
@@ -212,13 +219,14 @@ public class DUUICoreReader
 //        extends JCasResourceCollectionReader_ImplBase
         implements DUUICollectionReader
 {
-    public List<String> pageIDs = Arrays.asList("24111", "15122", "24113"); // TODO: TEMPORARY
+    public List<String> pageIDs = new ArrayList<>();
     private TSVTable pageTable;
     private TSVTable screenshotsTable;
     private TSVTable htmlTable;
     private TSVTable scrolleventTable;
     private TSVTable sessionDataTable;
     private TSVTable userDataTable;
+    // Index of the next pageID to be processed
     public Integer nextIndex = 0;
     TypeSystemDescription tsDesc;
 
@@ -252,23 +260,17 @@ public class DUUICoreReader
     }
 
     public DUUICoreReader() throws CsvValidationException, IOException {
-        this.pageTable = new TSVTable("testTables/pageTable.tsv");
-        this.screenshotsTable = new TSVTable("testTables/screenshotsTable.tsv");
-        this.htmlTable = new TSVTable("testTables/htmlTable.tsv");
-        this.scrolleventTable = new TSVTable("testTables/scrollTable.tsv");
-        this.sessionDataTable = new TSVTable("testTables/sessionsTable.tsv");
-        this.userDataTable = new TSVTable("testTables/neobridgeUserTable.tsv");
-        this.populatePageIDs();
+        this.pageTable =        new TSVTable("TEMP_files/testTables/pageTable.tsv");
+        this.screenshotsTable = new TSVTable("TEMP_files/testTables/screenshotsTable.tsv");
+        this.htmlTable =        new TSVTable("TEMP_files/testTables/htmlTable.tsv");
+        this.scrolleventTable = new TSVTable("TEMP_files/testTables/scrollTable.tsv");
+        this.sessionDataTable = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
+        this.userDataTable =    new TSVTable("TEMP_files/testTables/neobridgeUserTable.tsv");
+        this.pageIDs = new TSVTable("TEMP_files/testTables/pageTable.tsv").getColumn(0);
         this.tsDesc = TypeSystemDescriptionFactory
                 .createTypeSystemDescriptionFromPath(
                         "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
                 );
-    }
-
-    public List<String> populatePageIDs() throws CsvValidationException, IOException {
-        List<String> pageIDs = new TSVTable("testTables/pageTable.tsv").getColumn(0);
-        this.pageIDs = pageIDs;
-        return pageIDs;
     }
 
     /**
@@ -279,8 +281,8 @@ public class DUUICoreReader
      * @throws IOException
      */
     public List<List<String>> mapPagesSessionsUsers() throws CsvValidationException, IOException {
-        TSVTable pages = new TSVTable("testTables/pageTable.tsv");
-        TSVTable sessions = new TSVTable("testTables/sessionsTable.tsv");
+        TSVTable pages = new TSVTable("TEMP_files/testTables/pageTable.tsv");
+        TSVTable sessions = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
         List<List<String>> result = new ArrayList<>();
 
         for (var id : this.pageIDs) {
@@ -300,6 +302,7 @@ public class DUUICoreReader
         dmd.setDocumentId(id);
         dmd.setDocumentTitle(id);
         dmd.addToIndexes();
+
     }
 
     public void annotateAllScreenshotData(JCas jcas, String pageID) throws Exception {
@@ -334,7 +337,7 @@ public class DUUICoreReader
         }
     }
 
-    public void annotateAllScrollevents(JCas jcas, String pageID) {
+    public void annotateAllScrollEvents(JCas jcas, String pageID) {
         TSVTable scrollEventData = this.scrolleventTable.extractByValue("page_id", pageID);
         Map<String, List<String>> tableMap = scrollEventData.getTableMap();
 
@@ -370,7 +373,6 @@ public class DUUICoreReader
         pageAnno.setTab_id(pageDataMap.get("tab_id").get(0));
         pageAnno.setAssessment_phase_in_session_id(pageDataMap.get("assessment_phase_in_session_id").get(0));
         pageAnno.addToIndexes();
-
     }
 
     public void annotateSession(JCas jcas, String pageID) throws CsvValidationException, IOException {
@@ -427,20 +429,36 @@ public class DUUICoreReader
         userAnno.addToIndexes();
     }
 
+    public static List<String> getHtmlFileIDs (String filePath) throws ResourceInitializationException, CASException {
+        File xmi = new File(filePath);
+        JCas jcas = JCasFactory.createJCas();
+
+        try (FileInputStream stream = new FileInputStream(xmi)) {
+            XmlCasDeserializer.deserialize(stream, jcas.getCas(), true);
+        } catch (IOException | SAXException e) {
+            throw new RuntimeException(e);
+        }
+
+        for (HTMLData anno : JCasUtil.select(jcas, HTMLData.class)) {
+            System.out.println("Annotation: " + anno.getId()) ;
+        }
+
+        return new ArrayList<>();
+    }
+
     public void toJcas(JCas jcas) throws Exception {
         String currentPageID = this.pageIDs.get(this.nextIndex);
-        TSVTable pageScreenshots = this.screenshotsTable.extractByValue("page_id", currentPageID);
 
         if (JCasUtil.select(jcas, DocumentMetaData.class).isEmpty()) {
             this.addMetadata(jcas, currentPageID);
         }
 
-//        annotateAllScreenshotData(jcas, currentPageID);
-//        annotateAllHtmlData(jcas, currentPageID);
-//        annotateAllScrollevents(jcas, currentPageID);
-//        annotateSession(jcas, currentPageID);
-//        annotateUser(jcas, currentPageID);
         annotatePageData(jcas, currentPageID);
+        annotateSession(jcas, currentPageID);
+        annotateUser(jcas, currentPageID);
+        annotateAllScreenshotData(jcas, currentPageID);
+        annotateAllHtmlData(jcas, currentPageID);
+        annotateAllScrollEvents(jcas, currentPageID);
 
         this.nextIndex++;
     }
