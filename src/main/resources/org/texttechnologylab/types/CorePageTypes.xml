@@ -3,44 +3,6 @@
     <types>
 
         <typeDescription>
-            <name>org.texttechnologylab.annotation.corepagetypes.HTMLData</name>
-            <supertypeName>uima.cas.AnnotationBase</supertypeName>
-            <features>
-
-                <featureDescription>
-                    <name>id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>source</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>timestamp</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>page_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>assessment_phase_in_session_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>session_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-            </features>
-        </typeDescription>
-
-        <typeDescription>
             <name>org.texttechnologylab.annotation.corepagetypes.Page</name>
             <supertypeName>uima.cas.AnnotationBase</supertypeName>
             <features>
@@ -72,98 +34,6 @@
         </typeDescription>
 
         <typeDescription>
-            <name>org.texttechnologylab.annotation.corepagetypes.Screenshot</name>
-            <supertypeName>uima.cas.AnnotationBase</supertypeName>
-            <features>
-                <featureDescription>
-                    <name>id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>reason</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>timestamp</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>page_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>assessment_phase_in_session_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>session_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-            </features>
-        </typeDescription>
-
-        <typeDescription>
-            <name>org.texttechnologylab.annotation.corepagetypes.ScrollEvent</name>
-            <supertypeName>uima.cas.AnnotationBase</supertypeName>
-            <features>
-                <featureDescription>
-                    <name>id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>fromX</name>
-                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>fromY</name>
-                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>toX</name>
-                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>toY</name>
-                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>startTime</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>endTime</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>timestamp</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>pageId</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>assessment_phase_in_session_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-
-                <featureDescription>
-                    <name>session_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-            </features>
-        </typeDescription>
-
-        <typeDescription>
             <name>org.texttechnologylab.annotation.corepagetypes.UserSession</name>
             <supertypeName>uima.cas.AnnotationBase</supertypeName>
             <features>
@@ -181,10 +51,6 @@
                 </featureDescription>
                 <featureDescription>
                     <name>webExtensionKey</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>user_id</name>
                     <rangeTypeName>uima.cas.String</rangeTypeName>
                 </featureDescription>
             </features>
@@ -234,6 +100,87 @@
         </typeDescription>
 
         <typeDescription>
+            <name>org.texttechnologylab.annotation.corepagetypes.HTMLData</name>
+            <supertypeName>uima.cas.AnnotationBase</supertypeName>
+            <features>
+                <featureDescription>
+                    <name>id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>source</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>timestamp</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+            </features>
+        </typeDescription>
+
+        <typeDescription>
+            <name>org.texttechnologylab.annotation.corepagetypes.Screenshot</name>
+            <supertypeName>uima.cas.AnnotationBase</supertypeName>
+            <features>
+                <featureDescription>
+                    <name>id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>reason</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>timestamp</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>base64Encoding</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+            </features>
+        </typeDescription>
+
+        <typeDescription>
+            <name>org.texttechnologylab.annotation.corepagetypes.ScrollEvent</name>
+            <supertypeName>uima.cas.AnnotationBase</supertypeName>
+            <features>
+                <featureDescription>
+                    <name>id</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>fromX</name>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>fromY</name>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>toX</name>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>toY</name>
+                    <rangeTypeName>uima.cas.Integer</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>startTime</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>endTime</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>timestamp</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+            </features>
+        </typeDescription>
+
+        <typeDescription>
             <name>org.texttechnologylab.annotation.corepagetypes.PageOpen</name>
             <supertypeName>uima.cas.AnnotationBase</supertypeName>
             <features>
@@ -247,10 +194,6 @@
                 </featureDescription>
                 <featureDescription>
                     <name>page_id</name>
-                    <rangeTypeName>uima.cas.String</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>assessment_phase_in_session_id</name>
                     <rangeTypeName>uima.cas.String</rangeTypeName>
                 </featureDescription>
                 <featureDescription>

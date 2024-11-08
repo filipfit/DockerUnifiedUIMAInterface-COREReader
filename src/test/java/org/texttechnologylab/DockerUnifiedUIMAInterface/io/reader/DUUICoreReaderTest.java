@@ -1,11 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
 import com.opencsv.exceptions.CsvValidationException;
-import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
@@ -104,6 +102,27 @@ class DUUICoreReaderTest {
             row.add(userID);
             pageSessionUser.add(row);
         }
+    }
+
+    @Test
+    public void testMapPagesSessionsUsers() throws Exception{
+        DUUICoreReader reader = new DUUICoreReader();
+        List<List<String>> result = reader.getMappedPagesSessionsUsers();
+        System.out.println(result);
+    }
+
+    @Test
+    public void testGetPageID() throws Exception {
+        DUUICoreReader reader = new DUUICoreReader();
+        String session = reader.getSessionID("24111");
+        System.out.println("pageID: 24111   sessionID: " + session);
+    }
+
+    @Test
+    public void testGetUserID() throws Exception {
+        DUUICoreReader reader = new DUUICoreReader();
+        String user = reader.getUserID("24111");
+        System.out.println(user);
     }
 
     @Test

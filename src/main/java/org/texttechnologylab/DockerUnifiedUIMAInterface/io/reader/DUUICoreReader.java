@@ -44,7 +44,7 @@ class TSVTable {
      * @return  Hashtable-Representation of this.table
      */
     public Map<String, List<String>> getTableMap() {
-        if (tableMap != null) return tableMap;
+        if (this.tableMap != null) return this.tableMap;
         Map<String, List<String>> tableMap = new HashMap<>();
         Integer columnCount = this.headers.size();
         Integer rowCount = this.table.size();
@@ -226,6 +226,7 @@ public class DUUICoreReader
     private TSVTable scrolleventTable;
     private TSVTable sessionDataTable;
     private TSVTable userDataTable;
+    private List<List<String>> mappedPagesSessionsUsers;
     // Index of the next pageID to be processed
     public Integer nextIndex = 0;
     TypeSystemDescription tsDesc;
@@ -280,7 +281,9 @@ public class DUUICoreReader
      * @throws CsvValidationException
      * @throws IOException
      */
-    public List<List<String>> mapPagesSessionsUsers() throws CsvValidationException, IOException {
+    public List<List<String>> getMappedPagesSessionsUsers() throws CsvValidationException, IOException {
+        if (this.mappedPagesSessionsUsers != null) return this.mappedPagesSessionsUsers;
+
         TSVTable pages = new TSVTable("TEMP_files/testTables/pageTable.tsv");
         TSVTable sessions = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
         List<List<String>> result = new ArrayList<>();
@@ -294,7 +297,27 @@ public class DUUICoreReader
             row.add(userID);
             result.add(row);
         }
+
+        this.mappedPagesSessionsUsers = result;
         return result;
+    }
+
+    public String getSessionID(String pageID) throws CsvValidationException, IOException {
+        String sessionID = this.getMappedPagesSessionsUsers().stream()
+                .filter(arr -> arr.get(0).equals(pageID))
+                .findFirst()
+                .get()
+                .get(1);
+        return sessionID;
+    }
+
+    public String getUserID(String pageID) throws CsvValidationException, IOException {
+        String userID = this.getMappedPagesSessionsUsers().stream()
+                .filter(arr -> arr.get(0).equals(pageID))
+                .findFirst()
+                .get()
+                .get(2);
+        return userID;
     }
 
     public void addMetadata(JCas jcas, String id) {
@@ -303,60 +326,6 @@ public class DUUICoreReader
         dmd.setDocumentTitle(id);
         dmd.addToIndexes();
 
-    }
-
-    public void annotateAllScreenshotData(JCas jcas, String pageID) throws Exception {
-        TSVTable pageScreenshotData = this.screenshotsTable.extractByValue("page_id", pageID);
-        Map<String, List<String>> tableMap = pageScreenshotData.getTableMap();
-
-        for (var i = 0; i < pageScreenshotData.getSize().get(0); i++) {
-            Screenshot shotAnno = new Screenshot(jcas);
-            shotAnno.setId(tableMap.get("id").get(i));
-            shotAnno.setReason(tableMap.get("reason").get(i));
-            shotAnno.setTimestamp(tableMap.get("timestamp").get(i));
-            shotAnno.setPage_id(tableMap.get("page_id").get(i));
-            shotAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
-            shotAnno.setSession_id(tableMap.get("session_id").get(i));
-            shotAnno.addToIndexes();
-        }
-    }
-
-    public void annotateAllHtmlData(JCas jcas, String pageID) {
-        TSVTable pageHtmlData = this.htmlTable.extractByValue("page_id", pageID);
-        Map<String, List<String>> tableMap = pageHtmlData.getTableMap();
-
-        for (var i = 0; i < pageHtmlData.getSize().get(0); i++) {
-            HTMLData htmlAnno = new HTMLData(jcas);
-            htmlAnno.setId(tableMap.get("id").get(i));
-            htmlAnno.setSource(tableMap.get("source").get(i));
-            htmlAnno.setTimestamp(tableMap.get("timestamp").get(i));
-            htmlAnno.setPage_id(tableMap.get("page_id").get(i));
-            htmlAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
-            htmlAnno.setSession_id(tableMap.get("session_id").get(i));
-            htmlAnno.addToIndexes();
-        }
-    }
-
-    public void annotateAllScrollEvents(JCas jcas, String pageID) {
-        TSVTable scrollEventData = this.scrolleventTable.extractByValue("page_id", pageID);
-        Map<String, List<String>> tableMap = scrollEventData.getTableMap();
-
-            for (var i = 0; i < scrollEventData.getSize().get(0); i++) {
-                ScrollEvent scrollAnno = new ScrollEvent(jcas);
-
-                scrollAnno.setId(tableMap.get("id").get(i));
-                scrollAnno.setFromX(Integer.parseInt(tableMap.get("fromX").get(i)));
-                scrollAnno.setFromY(Integer.parseInt(tableMap.get("fromY").get(i)));
-                scrollAnno.setToX(Integer.parseInt(tableMap.get("toX").get(i)));
-                scrollAnno.setToY(Integer.parseInt(tableMap.get("toY").get(i)));
-                scrollAnno.setStartTime(tableMap.get("startTime").get(i));
-                scrollAnno.setEndTime(tableMap.get("endTime").get(i));
-                scrollAnno.setTimestamp(tableMap.get("timestamp").get(i));
-                scrollAnno.setPageId(tableMap.get("page_id").get(i));
-                scrollAnno.setAssessment_phase_in_session_id(tableMap.get("assessment_phase_in_session_id").get(i));
-                scrollAnno.setSession_id(tableMap.get("session_id").get(i));
-                scrollAnno.addToIndexes();
-            }
     }
 
     public void annotatePageData(JCas jcas, String pageID) {
@@ -377,11 +346,11 @@ public class DUUICoreReader
 
     public void annotateSession(JCas jcas, String pageID) throws CsvValidationException, IOException {
         /*
-        * From pageID find out the sessionID
-        * Having sessionID get every row from sessionsTable.tsv whose id column equals the sessionID
-        * A Page can only have one session associated with it
+         * From pageID find out the sessionID
+         * Having sessionID get every row from sessionsTable.tsv whose id column equals the sessionID
+         * A Page can only have one session associated with it
          */
-        List<List<String>> mappedPagesSessions = this.mapPagesSessionsUsers().stream()
+        List<List<String>> mappedPagesSessions = this.getMappedPagesSessionsUsers().stream()
                 .filter(arr -> arr.get(0).equals(pageID))
                 .toList();
         String sessionID = mappedPagesSessions.get(0).get(1); // Nested list, second element
@@ -396,17 +365,16 @@ public class DUUICoreReader
         sessionAnno.setStarted(sessionTableMap.get("started").get(0));
         sessionAnno.setUseragent(sessionTableMap.get("useragent").get(0));
         sessionAnno.setWebExtensionKey(sessionTableMap.get("webExtensionKey").get(0));
-        sessionAnno.setUser_id(sessionTableMap.get("user_id").get(0));
         sessionAnno.addToIndexes();
     }
 
     public void annotateUser(JCas jcas, String pageID) throws CsvValidationException, IOException {
         /*
-        * From pageID find out the sessionID and from sessionID find out userID
-        * Having the userID get every row from neobridgeUserTable.tsv whose id column equals the userID
-        * A Page can only have one user associated with it
+         * From pageID find out the sessionID and from sessionID find out userID
+         * Having the userID get every row from neobridgeUserTable.tsv whose id column equals the userID
+         * A Page can only have one user associated with it
          */
-        List<List<String>> mappedPagesUsers = this.mapPagesSessionsUsers().stream()
+        List<List<String>> mappedPagesUsers = this.getMappedPagesSessionsUsers().stream()
                 .filter(arr -> arr.get(0).equals(pageID))
                 .toList();
         String userID = mappedPagesUsers.get(0).get(2); // Nested list, third element
@@ -427,6 +395,52 @@ public class DUUICoreReader
         userAnno.setPicture(userTableMap.get("picture").get(0));
         userAnno.setRealName(userTableMap.get("realName").get(0));
         userAnno.addToIndexes();
+    }
+
+    public void annotateAllHtmlData(JCas jcas, String pageID) {
+        TSVTable pageHtmlData = this.htmlTable.extractByValue("page_id", pageID);
+        Map<String, List<String>> tableMap = pageHtmlData.getTableMap();
+
+        for (var i = 0; i < pageHtmlData.getSize().get(0); i++) {
+            HTMLData htmlAnno = new HTMLData(jcas);
+            htmlAnno.setId(tableMap.get("id").get(i));
+            htmlAnno.setSource(tableMap.get("source").get(i));
+            htmlAnno.setTimestamp(tableMap.get("timestamp").get(i));
+            htmlAnno.addToIndexes();
+        }
+    }
+
+    public void annotateAllScreenshotData(JCas jcas, String pageID) throws Exception {
+        TSVTable pageScreenshotData = this.screenshotsTable.extractByValue("page_id", pageID);
+        Map<String, List<String>> tableMap = pageScreenshotData.getTableMap();
+
+        for (var i = 0; i < pageScreenshotData.getSize().get(0); i++) {
+            Screenshot shotAnno = new Screenshot(jcas);
+            shotAnno.setId(tableMap.get("id").get(i));
+            shotAnno.setReason(tableMap.get("reason").get(i));
+            shotAnno.setTimestamp(tableMap.get("timestamp").get(i));
+
+            shotAnno.addToIndexes();
+        }
+    }
+
+    public void annotateAllScrollEvents(JCas jcas, String pageID) {
+        TSVTable scrollEventData = this.scrolleventTable.extractByValue("page_id", pageID);
+        Map<String, List<String>> tableMap = scrollEventData.getTableMap();
+
+            for (var i = 0; i < scrollEventData.getSize().get(0); i++) {
+                ScrollEvent scrollAnno = new ScrollEvent(jcas);
+
+                scrollAnno.setId(tableMap.get("id").get(i));
+                scrollAnno.setFromX(Integer.parseInt(tableMap.get("fromX").get(i)));
+                scrollAnno.setFromY(Integer.parseInt(tableMap.get("fromY").get(i)));
+                scrollAnno.setToX(Integer.parseInt(tableMap.get("toX").get(i)));
+                scrollAnno.setToY(Integer.parseInt(tableMap.get("toY").get(i)));
+                scrollAnno.setStartTime(tableMap.get("startTime").get(i));
+                scrollAnno.setEndTime(tableMap.get("endTime").get(i));
+                scrollAnno.setTimestamp(tableMap.get("timestamp").get(i));
+                scrollAnno.addToIndexes();
+            }
     }
 
     public static List<String> getHtmlFileIDs (String filePath) throws ResourceInitializationException, CASException {
@@ -456,8 +470,8 @@ public class DUUICoreReader
         annotatePageData(jcas, currentPageID);
         annotateSession(jcas, currentPageID);
         annotateUser(jcas, currentPageID);
-        annotateAllScreenshotData(jcas, currentPageID);
         annotateAllHtmlData(jcas, currentPageID);
+        annotateAllScreenshotData(jcas, currentPageID);
         annotateAllScrollEvents(jcas, currentPageID);
 
         this.nextIndex++;
