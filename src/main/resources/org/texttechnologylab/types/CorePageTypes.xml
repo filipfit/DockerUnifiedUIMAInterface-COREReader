@@ -115,6 +115,10 @@
                     <name>timestamp</name>
                     <rangeTypeName>uima.cas.String</rangeTypeName>
                 </featureDescription>
+                <featureDescription>
+                    <name>HTMLSource</name>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
             </features>
         </typeDescription>
 

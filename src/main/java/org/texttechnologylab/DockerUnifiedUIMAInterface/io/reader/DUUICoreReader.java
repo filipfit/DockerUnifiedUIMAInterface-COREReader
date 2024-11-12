@@ -23,12 +23,12 @@ import org.texttechnologylab.annotation.corepagetypes.*;
 import org.xml.sax.SAXException;
 
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 
 // Temporarily used class for managin tab-separated-data (.tsv) files, located in ./testTables
@@ -212,6 +212,61 @@ class TSVTable {
     }
 }
 
+class CorePageUtils {
+
+    public static String getBaseName(String fileName) {
+        int index = fileName.indexOf('.');
+        return (index == -1) ? fileName : fileName.substring(0, index);
+    }
+
+    /**
+     * Searches for files whose file name is in fileNames. Starts search in startDir. File names must contain only files
+     * without any of their extension. E.g. "image.png.gz" should be "image".
+     * @param fileNames     List of just filenames without any extensions
+     * @param startDir      Directory to start searching from
+     * @return              List of full paths to the found files
+     * @throws IOException
+     */
+    public static Map<String, Path> filesSearch(Set<String> fileNames, Path startDir) throws IOException {
+        return Files.walk(startDir)
+                .filter(Files::isRegularFile)
+                .filter(path -> {
+                    String f = CorePageUtils.getBaseName(path.getFileName().toString());
+                    return fileNames.contains(f);
+                })
+                .collect(Collectors.toMap(
+                        path -> CorePageUtils.getBaseName(path.getFileName().toString()),
+                        path -> path
+                ));
+    }
+
+    public static String pngToBase64(Path imagePath) throws IOException {
+        Base64.Encoder encoder = Base64.getEncoder();
+        String base64String;
+
+        try (InputStream stream = new GZIPInputStream(Files.newInputStream(imagePath))) {
+            byte[] data = stream.readAllBytes();
+            base64String = encoder.encodeToString(data);
+        }
+        return base64String;
+    }
+
+    public static String readGzippedHTML(Path gzippedFilePath) throws IOException {
+        StringBuilder htmlString = new StringBuilder();
+        try (GZIPInputStream gzStream = new GZIPInputStream(Files.newInputStream(gzippedFilePath));
+            InputStreamReader reader = new InputStreamReader(gzStream, StandardCharsets.UTF_8);
+            BufferedReader bufferedReader = new BufferedReader(reader)
+        ) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                htmlString.append(line).append("\n");
+            }
+        }
+        return htmlString.toString();
+    }
+
+}
+
 @TypeCapability(
         outputs = { "org.texttechnologylab.annotation.corepagetypes.Screenshot" }
 )
@@ -230,6 +285,20 @@ public class DUUICoreReader
     // Index of the next pageID to be processed
     public Integer nextIndex = 0;
     TypeSystemDescription tsDesc;
+
+    public DUUICoreReader() throws CsvValidationException, IOException {
+        this.pageTable =        new TSVTable("TEMP_files/testTables/pageTable.tsv");
+        this.screenshotsTable = new TSVTable("TEMP_files/testTables/screenshotsTable.tsv");
+        this.htmlTable =        new TSVTable("TEMP_files/testTables/htmlTable.tsv");
+        this.scrolleventTable = new TSVTable("TEMP_files/testTables/scrollTable.tsv");
+        this.sessionDataTable = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
+        this.userDataTable =    new TSVTable("TEMP_files/testTables/neobridgeUserTable.tsv");
+        this.pageIDs = new TSVTable("TEMP_files/testTables/pageTable.tsv").getColumn(0);
+        this.tsDesc = TypeSystemDescriptionFactory
+                .createTypeSystemDescriptionFromPath(
+                        "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
+                );
+    }
 
     @Override
     public AdvancedProgressMeter getProgress() {
@@ -258,20 +327,6 @@ public class DUUICoreReader
     @Override
     public long getDone() {
         return nextIndex + 1;
-    }
-
-    public DUUICoreReader() throws CsvValidationException, IOException {
-        this.pageTable =        new TSVTable("TEMP_files/testTables/pageTable.tsv");
-        this.screenshotsTable = new TSVTable("TEMP_files/testTables/screenshotsTable.tsv");
-        this.htmlTable =        new TSVTable("TEMP_files/testTables/htmlTable.tsv");
-        this.scrolleventTable = new TSVTable("TEMP_files/testTables/scrollTable.tsv");
-        this.sessionDataTable = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
-        this.userDataTable =    new TSVTable("TEMP_files/testTables/neobridgeUserTable.tsv");
-        this.pageIDs = new TSVTable("TEMP_files/testTables/pageTable.tsv").getColumn(0);
-        this.tsDesc = TypeSystemDescriptionFactory
-                .createTypeSystemDescriptionFromPath(
-                        "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
-                );
     }
 
     /**
@@ -397,15 +452,24 @@ public class DUUICoreReader
         userAnno.addToIndexes();
     }
 
-    public void annotateAllHtmlData(JCas jcas, String pageID) {
+    public void annotateAllHtmlData(JCas jcas, String pageID) throws IOException {
         TSVTable pageHtmlData = this.htmlTable.extractByValue("page_id", pageID);
         Map<String, List<String>> tableMap = pageHtmlData.getTableMap();
+        Map<String, Path> htmlSourcePaths = CorePageUtils.filesSearch(
+                Set.copyOf(tableMap.get("id")),
+                Paths.get("TEMP_files/TEMP_data/html")
+        );
 
         for (var i = 0; i < pageHtmlData.getSize().get(0); i++) {
             HTMLData htmlAnno = new HTMLData(jcas);
             htmlAnno.setId(tableMap.get("id").get(i));
             htmlAnno.setSource(tableMap.get("source").get(i));
             htmlAnno.setTimestamp(tableMap.get("timestamp").get(i));
+
+//            String htmlSource = Files.readString(htmlSourcePaths.get(tableMap.get("id").get(i)));
+            String htmlSource = CorePageUtils.readGzippedHTML(htmlSourcePaths.get(tableMap.get("id").get(i)));
+            htmlAnno.setHTMLSource(htmlSource);
+
             htmlAnno.addToIndexes();
         }
     }
@@ -413,12 +477,20 @@ public class DUUICoreReader
     public void annotateAllScreenshotData(JCas jcas, String pageID) throws Exception {
         TSVTable pageScreenshotData = this.screenshotsTable.extractByValue("page_id", pageID);
         Map<String, List<String>> tableMap = pageScreenshotData.getTableMap();
+        Map<String, Path> screenshotPaths = CorePageUtils.filesSearch(
+                Set.copyOf(tableMap.get("id")),
+                Paths.get("TEMP_files/TEMP_data/screens")
+        );
 
         for (var i = 0; i < pageScreenshotData.getSize().get(0); i++) {
             Screenshot shotAnno = new Screenshot(jcas);
             shotAnno.setId(tableMap.get("id").get(i));
             shotAnno.setReason(tableMap.get("reason").get(i));
             shotAnno.setTimestamp(tableMap.get("timestamp").get(i));
+            String base64Img = CorePageUtils.pngToBase64(
+                    screenshotPaths.get(tableMap.get("id").get(i))
+            );
+            shotAnno.setBase64Encoding(base64Img);
 
             shotAnno.addToIndexes();
         }

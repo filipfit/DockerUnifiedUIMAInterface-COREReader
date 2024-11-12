@@ -12,13 +12,12 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 class DUUICoreReaderTest {
     @Test
@@ -128,6 +127,60 @@ class DUUICoreReaderTest {
     @Test
     void testGetHTML() throws Exception {
         DUUICoreReader.getHtmlFileIDs("TEMP_files/TEMP_out/24111.xmi");
+    }
+
+    @Test
+    void testFileSearch() throws Exception {
+        TSVTable screenshotsTable = new TSVTable("TEMP_files/testTables/screenshotsTable.tsv");
+        TSVTable pageScreenshotData = screenshotsTable.extractByValue("page_id", "24111");
+        Map<String, List<String>> tableMap = pageScreenshotData.getTableMap();
+
+        Set<String> filesNames = Set.copyOf(tableMap.get("id"));
+        Map<String, Path> filePaths =  CorePageUtils.filesSearch(filesNames, Paths.get("TEMP_files/TEMP_data/screens"));
+        for (var entry : filePaths.entrySet()) {
+            System.out.println(entry.getKey() + ":     " + entry.getValue().toString());
+        }
+    }
+
+    @Test
+    void testToBase64() throws Exception {
+        Path imgPath = Paths.get("TEMP_files/TEMP_data/screens/4537/448537.png.gz");
+        Base64.Encoder encoder = Base64.getEncoder();
+        String outFilePath = "TEMP_files/TEMP_out/decoded-img.png";
+        String base64String;
+
+        // Encoding png to base64
+        try (InputStream stream = new GZIPInputStream(Files.newInputStream(imgPath))) {
+            byte[] data = stream.readAllBytes();
+            base64String = encoder.encodeToString(data);
+        }
+        System.out.println(base64String);
+
+        // Decoding from base64 to png
+        byte[] imageBytes = Base64.getDecoder().decode(base64String);
+
+        try (FileOutputStream fout = new FileOutputStream(outFilePath)) {
+            fout.write(imageBytes);
+        }
+    }
+
+    @Test
+    void testReadGzippedHTML() throws Exception {
+        Path filePath = Paths.get("TEMP_files/TEMP_data/html/7053/1945217.html.gz");
+        StringBuilder htmlString = new StringBuilder();
+
+        try (FileInputStream fis = new FileInputStream(filePath.toString());
+             GZIPInputStream gis = new GZIPInputStream(fis);
+             InputStreamReader isr = new InputStreamReader(gis);
+             BufferedReader br = new BufferedReader(isr))
+        {
+            String line;
+            while ((line = br.readLine()) != null) {
+                htmlString.append(line).append("\n");
+            }
+        }
+
+        System.out.println(htmlString.toString());
     }
 
     @Test void testReaderInPipeline() throws Exception {
