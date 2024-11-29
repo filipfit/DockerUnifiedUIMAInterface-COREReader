@@ -287,13 +287,13 @@ public class DUUICoreReader
     TypeSystemDescription tsDesc;
 
     public DUUICoreReader() throws CsvValidationException, IOException {
-        this.pageTable =        new TSVTable("TEMP_files/testTables/pageTable.tsv");
-        this.screenshotsTable = new TSVTable("TEMP_files/testTables/screenshotsTable.tsv");
-        this.htmlTable =        new TSVTable("TEMP_files/testTables/htmlTable.tsv");
-        this.scrolleventTable = new TSVTable("TEMP_files/testTables/scrollTable.tsv");
-        this.sessionDataTable = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
-        this.userDataTable =    new TSVTable("TEMP_files/testTables/neobridgeUserTable.tsv");
-        this.pageIDs = new TSVTable("TEMP_files/testTables/pageTable.tsv").getColumn(0);
+        this.pageTable =        new TSVTable("TEMP_files/testTables/pages.tsv");
+        this.screenshotsTable = new TSVTable("TEMP_files/testTables/screenshots.tsv");
+        this.htmlTable =        new TSVTable("TEMP_files/testTables/html_data.tsv");
+        this.scrolleventTable = new TSVTable("TEMP_files/testTables/scroll_events.tsv");
+        this.sessionDataTable = new TSVTable("TEMP_files/testTables/sessions.tsv");
+        this.userDataTable =    new TSVTable("TEMP_files/testTables/users.tsv");
+        this.pageIDs = new TSVTable("TEMP_files/testTables/pages.tsv").getColumn(0);
         this.tsDesc = TypeSystemDescriptionFactory
                 .createTypeSystemDescriptionFromPath(
                         "src/main/resources/org/texttechnologylab/types/CorePageTypes.xml"
@@ -339,8 +339,8 @@ public class DUUICoreReader
     public List<List<String>> getMappedPagesSessionsUsers() throws CsvValidationException, IOException {
         if (this.mappedPagesSessionsUsers != null) return this.mappedPagesSessionsUsers;
 
-        TSVTable pages = new TSVTable("TEMP_files/testTables/pageTable.tsv");
-        TSVTable sessions = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
+        TSVTable pages = new TSVTable("TEMP_files/testTables/pages.tsv");
+        TSVTable sessions = new TSVTable("TEMP_files/testTables/sessions.tsv");
         List<List<String>> result = new ArrayList<>();
 
         for (var id : this.pageIDs) {
@@ -402,7 +402,7 @@ public class DUUICoreReader
     public void annotateSession(JCas jcas, String pageID) throws CsvValidationException, IOException {
         /*
          * From pageID find out the sessionID
-         * Having sessionID get every row from sessionsTable.tsv whose id column equals the sessionID
+         * Having sessionID get every row from sessions.tsv whose id column equals the sessionID
          * A Page can only have one session associated with it
          */
         List<List<String>> mappedPagesSessions = this.getMappedPagesSessionsUsers().stream()
@@ -426,7 +426,7 @@ public class DUUICoreReader
     public void annotateUser(JCas jcas, String pageID) throws CsvValidationException, IOException {
         /*
          * From pageID find out the sessionID and from sessionID find out userID
-         * Having the userID get every row from neobridgeUserTable.tsv whose id column equals the userID
+         * Having the userID get every row from users.tsv whose id column equals the userID
          * A Page can only have one user associated with it
          */
         List<List<String>> mappedPagesUsers = this.getMappedPagesSessionsUsers().stream()

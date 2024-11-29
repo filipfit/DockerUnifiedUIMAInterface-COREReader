@@ -27,7 +27,7 @@ class DUUICoreReaderTest {
 
     @Test
     public void testCreateTable() throws CsvValidationException, IOException {
-        TSVTable myTable = new TSVTable("./testTables/screenshotsTable.tsv");
+        TSVTable myTable = new TSVTable("./testTables/screenshots.tsv");
         TSVTable newTable = myTable.getRows(0, 4);
 
         myTable.print();
@@ -40,7 +40,7 @@ class DUUICoreReaderTest {
 
     @Test
     public void testExtractByValue() throws Exception {
-        TSVTable t = new TSVTable("./testTables/screenshotsTable.tsv");
+        TSVTable t = new TSVTable("./testTables/screenshots.tsv");
         t = t.extractByValue("page_id", "24111");
         t.print();
     }
@@ -81,14 +81,14 @@ class DUUICoreReaderTest {
 
     @Test
     public void testGetAllPageIDs() throws Exception {
-        List<String> pageIDs = new TSVTable("TEMP_files/testTables/pageTable.tsv").getColumn(0);
+        List<String> pageIDs = new TSVTable("TEMP_files/testTables/pages.tsv").getColumn(0);
         System.out.println(pageIDs);
     }
 
     @Test
     public void testMapUsersToPages() throws Exception {
-        TSVTable pages = new TSVTable("TEMP_files/testTables/pageTable.tsv");
-        TSVTable sessions = new TSVTable("TEMP_files/testTables/sessionsTable.tsv");
+        TSVTable pages = new TSVTable("TEMP_files/testTables/pages.tsv");
+        TSVTable sessions = new TSVTable("TEMP_files/testTables/sessions.tsv");
         List<String> pageIDs = pages.getColumn(0);
         List<List<String>> pageSessionUser = new ArrayList<>();
 
@@ -131,14 +131,16 @@ class DUUICoreReaderTest {
 
     @Test
     void testFileSearch() throws Exception {
-        TSVTable screenshotsTable = new TSVTable("TEMP_files/testTables/screenshotsTable.tsv");
+        TSVTable screenshotsTable = new TSVTable("TEMP_files/testTables/screenshots.tsv");
         TSVTable pageScreenshotData = screenshotsTable.extractByValue("page_id", "24111");
         Map<String, List<String>> tableMap = pageScreenshotData.getTableMap();
 
         Set<String> filesNames = Set.copyOf(tableMap.get("id"));
         Map<String, Path> filePaths =  CorePageUtils.filesSearch(filesNames, Paths.get("TEMP_files/TEMP_data/screens"));
         for (var entry : filePaths.entrySet()) {
-            System.out.println(entry.getKey() + ":     " + entry.getValue().toString());
+//            System.out.println(entry.getKey() + ":     " + entry.getValue().toString());
+            System.out.println(entry.getValue().toString());
+
         }
     }
 
