@@ -1,5 +1,10 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.model.*;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
+import com.github.dockerjava.core.DockerClientBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -163,6 +168,65 @@ class DUUICoreReaderTest {
 
         try (FileOutputStream fout = new FileOutputStream(outFilePath)) {
             fout.write(imageBytes);
+        }
+    }
+
+    @Test
+    void dockerEasyocrTest() {
+        System.out.println("docker test");
+        DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                .withDockerHost("unix:///var/run/docker.sock") // Change if needed
+                .build();
+
+        // Docker client with explicit HTTP client
+        DockerClient dockerClient = DockerClientBuilder
+                .getInstance(config)
+                .build();
+
+        try {
+            String containerName = "easocr-container";
+            List<Container> containers = dockerClient.listContainersCmd()
+                    .withShowAll(true)
+                    .withNameFilter(List.of(containerName))
+                    .exec();
+
+            if (containers.isEmpty()) {
+                System.out.println("Container does not exist: " + containerName);
+                System.out.println("Creating container...");
+
+                CreateContainerResponse containerResponse = dockerClient.createContainerCmd("easyocr-rest")
+                        .withHostConfig(
+                                HostConfig.newHostConfig()
+                                        .withPortBindings(
+                                                new PortBinding(Ports.Binding.bindPort(5000), new ExposedPort(5000))
+                                        )
+                                        .withDeviceRequests(
+                                                List.of(
+                                                        new DeviceRequest()
+                                                                .withCapabilities(List.of(List.of("gpu")))
+                                                                .withCount(-1)
+                                                )
+                                        )
+                        )
+                        .exec();
+
+                System.out.println("Container created with ID: " + containerResponse.getId());
+                containers = dockerClient.listContainersCmd()
+                        .withShowAll(true)
+                        .withIdFilter(List.of(containerResponse.getId()))
+                        .exec();
+            }
+
+            for (var c : containers) {
+                System.out.println("Container " + c.getNames().toString()  + "starting");
+                dockerClient.startContainerCmd(c.getId()).exec();
+                System.out.println("Status: " + c.getStatus());
+            }
+            dockerClient.close();
+
+        }
+        catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
