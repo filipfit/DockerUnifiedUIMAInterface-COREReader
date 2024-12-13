@@ -267,6 +267,9 @@ class CorePageUtils {
 
 }
 
+/**
+ * @author Filip Fitzermann
+ */
 @TypeCapability(
         outputs = { "org.texttechnologylab.annotation.corepagetypes.Screenshot" }
 )

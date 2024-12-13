@@ -13,6 +13,8 @@ import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -229,6 +231,29 @@ class DUUICoreReaderTest {
             e.printStackTrace();
         }
     }
+
+    @Test
+    void testComposerEasyocr() throws Exception {
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(1)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIDockerDriver driver = new DUUIDockerDriver();
+        composer.addDriver(driver);
+        composer.add(new DUUIDockerDriver.Component("easyocr-rest").build());
+//        driver.
+
+        JCas jcas = JCasFactory.createJCas();
+        jcas.setDocumentLanguage("en");
+        jcas.setDocumentText("Text to process");
+
+        composer.run(jcas, "processing-run");
+
+    }
+
+    @Test
+    void testRequestImageTextBoundingBoxes() {}
 
     @Test
     void testReadGzippedHTML() throws Exception {
