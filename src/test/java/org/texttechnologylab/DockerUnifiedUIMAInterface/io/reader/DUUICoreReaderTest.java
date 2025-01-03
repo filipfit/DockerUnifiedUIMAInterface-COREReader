@@ -7,17 +7,26 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
+import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.XmlCasSerializer;
+import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.CoreReader.CorePageUtils;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.CoreReader.DUUICoreReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.CoreReader.ImageReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.CoreReader.TSVTable;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.annotation.ImageBase64;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -26,7 +35,10 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 
+import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
+
 class DUUICoreReaderTest {
+
     @Test
     public void testHello() {
         System.out.println("Hello World!");
@@ -233,6 +245,86 @@ class DUUICoreReaderTest {
     }
 
     @Test
+    void testCommLayer() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+
+        String luaScriptPath = Files.readString(
+                Path.of(DUUIComposer.class.getClassLoader()
+                    .getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_json.lua")
+                    .toURI())
+        );
+
+        DUUILuaContext ctx = new DUUILuaContext();
+        ctx.withGlobalLibrary("json", DUUIComposer.class.getClassLoader()
+                .getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua")
+                .toURI());
+
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(luaScriptPath, "remote", ctx);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+//        CasIOUtils.save();
+//        XmiCasDeserializer.deserialize();
+
+        lua.serialize(jc, out, null);
+        System.out.println(out.toString());
+    }
+
+    @Test
+    void testLuaWithDriver() throws Exception {
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(remoteDriver);
+
+        JCas jcas = JCasFactory.createJCas();
+
+        composer.add(
+                new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        );
+    }
+
+    @Test
+    void testEasyocrDockerImage() throws Exception {
+        JCas jcas = JCasFactory.createJCas();
+        DUUILuaContext luaContext = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer().withLuaContext(luaContext);
+//        composer.addDriver(new DUUIUIMADriver());
+        composer.addDriver(new DUUIDockerDriver().withTimeout(10000));
+
+        composer.add(new DUUIDockerDriver.Component("easyocr-rest:latest").build());
+
+        composer.run(jcas);
+
+
+//        composer.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class)).build());
+//
+//        composer.add(new DUUIDockerDriver.Component("easyocr-rest:latest").withImageFetching().build());
+//        composer.add(new DUUIUIMADriver.Component(
+//                AnalysisEngineFactory.createEngineDescription(
+//                        XmiWriter.class
+//                        , XmiWriter.PARAM_TARGET_LOCATION, "./TEMP_files/TEMP_out"
+//                        , XmiWriter.PARAM_PRETTY_PRINT, true
+//                        , XmiWriter.PARAM_OVERWRITE, true
+//                        , XmiWriter.PARAM_VERSION, "1.1"
+//                        , XmiWriter.PARAM_COMPRESSION, "NONE"
+//                )
+//        ).build());
+//
+//        composer.run(
+//                CollectionReaderFactory.createReaderDescription(
+//                        TextReader.class,
+//                        TextReader.PARAM_LANGUAGE, "de",
+//                        TextReader.PARAM_SOURCE_LOCATION, "./TEMP_files/TEMP_in/*.txt"
+//                ),
+//                "easyocrDockerImageTest");
+//        composer.shutdown();
+    }
+
+    @Test
     void testComposerEasyocr() throws Exception {
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -256,6 +348,13 @@ class DUUICoreReaderTest {
     void testRequestImageTextBoundingBoxes() {}
 
     @Test
+    void testImageReader() throws IOException {
+        ImageReader imgReader = new ImageReader("TEMP_files/TEMP_data/screens/4537");
+        String base64String = ImageReader.imageToBase64("TEMP_files/TEMP_data/screens/4537/448537.png.gz");
+        ImageReader.imageFromBase64(base64String, "TEMP_files/TEMP_out/decoded64.png");
+    }
+
+    @Test
     void testReadGzippedHTML() throws Exception {
         Path filePath = Paths.get("TEMP_files/TEMP_data/html/7053/1945217.html.gz");
         StringBuilder htmlString = new StringBuilder();
@@ -274,7 +373,86 @@ class DUUICoreReaderTest {
         System.out.println(htmlString.toString());
     }
 
-    @Test void testReaderInPipeline() throws Exception {
+    @Test
+    void testGetDimensionsFromImageCas() throws Exception {
+        JCas jcas = CorePageUtils.readJcasFromXmi("TEMP_files/TEMP_out/448537.xmi");
+
+        for (ImageBase64 anno : JCasUtil.select(jcas, ImageBase64.class)) {
+            System.out.println("Width | Height: " + anno.getWidth() + " | " + anno.getHeight());
+        }
+    }
+
+    @Test
+    void testLuaScriptSerialize() throws Exception {
+        // Assumes there is an already generated output of the ImageReader which can be read in
+        JCas jcas = CorePageUtils.readJcasFromXmi("TEMP_files/TEMP_out/448537.xmi");
+        jcas.setDocumentLanguage("de");
+
+        jcas.getDocumentText();
+
+        String luaScript = Files.readString(Path.of("src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/io/reader/CoreReader/duui-easyocr-image-annotator.lua"));
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary(); // Makes the json library available in the lua script
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(luaScript, "remote", ctx);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jcas, out, null);
+        System.out.println(out.toString());
+    }
+
+    @Test
+    void testDockerImageUsingRemoteDriver() throws Exception {
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withLuaContext(ctx);
+        composer.addDriver(new DUUIRemoteDriver());
+
+        composer.add(new DUUIRemoteDriver.Component("http://0.0.0.0:9714"));
+
+        composer.run(CollectionReaderFactory.createReaderDescription(
+                XmiReader.class,
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_LENIENT, true,
+                XmiReader.PARAM_SOURCE_LOCATION, "TEMP_files/TEMP_out/*.xmi"),
+                "run_serialize_json");
+
+        composer.shutdown();
+    }
+
+
+    @Test
+    void testImageReaderInPipeline() throws Exception {
+        String inputDir = "TEMP_files/TEMP_data/screens/4537";
+        String outputDir = "TEMP_files/TEMP_out";
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(1)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        composer.addDriver(new DUUIUIMADriver());
+        DUUIAsynchronousProcessor imageReader = new DUUIAsynchronousProcessor(
+            new ImageReader(inputDir)
+        );
+
+        composer.add(new DUUIUIMADriver.Component(
+                AnalysisEngineFactory.createEngineDescription(
+                        XmiWriter.class
+                        , XmiWriter.PARAM_TARGET_LOCATION, outputDir
+                        , XmiWriter.PARAM_PRETTY_PRINT, true
+                        , XmiWriter.PARAM_OVERWRITE, true
+                        , XmiWriter.PARAM_VERSION, "1.1"
+                        , XmiWriter.PARAM_COMPRESSION, "NONE"
+                )
+        ));
+
+        composer.run(imageReader, "ImageReder-test");
+        composer.shutdown();
+    }
+
+    @Test
+    void testCoreReaderInPipeline() throws Exception {
         Path dummySource = Paths.get("./TEMP_files/TEMP_in");
         Path targetLocation = Paths.get("./TEMP_files/TEMP_out");
 
