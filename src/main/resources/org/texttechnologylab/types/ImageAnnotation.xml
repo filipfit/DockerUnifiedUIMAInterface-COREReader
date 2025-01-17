@@ -25,36 +25,20 @@
             <supertypeName>uima.tcas.Annotation</supertypeName>
             <features>
                 <featureDescription>
-                    <name>x1</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
+                    <name>topLeft</name>
+                    <rangeTypeName>uima.cas.FloatArray</rangeTypeName>
                 </featureDescription>
                 <featureDescription>
-                    <name>y1</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
+                    <name>topRight</name>
+                    <rangeTypeName>uima.cas.FloatArray</rangeTypeName>
                 </featureDescription>
                 <featureDescription>
-                    <name>x2</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
+                    <name>botRight</name>
+                    <rangeTypeName>uima.cas.FloatArray</rangeTypeName>
                 </featureDescription>
                 <featureDescription>
-                    <name>y2</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>x3</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>y3</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>x4</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
-                </featureDescription>
-                <featureDescription>
-                    <name>y4</name>
-                    <rangeTypeName>uima.cas.Float</rangeTypeName>
+                    <name>botLeft</name>
+                    <rangeTypeName>uima.cas.FloatArray</rangeTypeName>
                 </featureDescription>
             </features>
         </typeDescription>

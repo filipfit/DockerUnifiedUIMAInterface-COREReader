@@ -123,18 +123,16 @@ public class ImageReader implements DUUICollectionReader
             e.printStackTrace();
         }
 
-        imgBase64Encoding = ImageReader.imageToBase64(imgBytes);
+        pCas.setDocumentText(ImageReader.imageToBase64(imgBytes));
 
         if (JCasUtil.select(pCas, DocumentMetaData.class).isEmpty()) { this.addMetadata(pCas); }
 
         ImageBase64 imgAnno = new ImageBase64(pCas);
         imgAnno.setWidth(width);
         imgAnno.setHeight(height);
-        imgAnno.setBase64String(imgBase64Encoding);
+//        imgAnno.setBase64String(ImageReader.imageToBase64(imgBytes));
         imgAnno.addToIndexes();
 
-        // TODO Not sure if this makes sense or is useful but for now is necessary when testing output using DUUIRemoteDriver
-        pCas.setDocumentText(imgBase64Encoding);
 
         this.progress.setDone(processedDocumentNumber);
         this.progress.setLeft(initialQueueSize - processedDocumentNumber);

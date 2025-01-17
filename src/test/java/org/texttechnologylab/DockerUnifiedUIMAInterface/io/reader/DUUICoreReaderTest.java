@@ -6,11 +6,14 @@ import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.opencsv.exceptions.CsvValidationException;
+import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.FloatArray;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -26,6 +29,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.CoreReader.Ima
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.CoreReader.TSVTable;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.annotation.FourPointBoundingBox;
 import org.texttechnologylab.annotation.ImageBase64;
 
 import java.io.*;
@@ -38,6 +42,15 @@ import java.util.zip.GZIPInputStream;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
 class DUUICoreReaderTest {
+
+    public static CollectionReaderDescription inputDirCas(String dir) throws ResourceInitializationException {
+        return CollectionReaderFactory.createReaderDescription(
+                XmiReader.class,
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_LENIENT, true,
+                XmiReader.PARAM_SOURCE_LOCATION, dir);
+    }
 
     @Test
     public void testHello() {
@@ -287,42 +300,6 @@ class DUUICoreReaderTest {
         );
     }
 
-    @Test
-    void testEasyocrDockerImage() throws Exception {
-        JCas jcas = JCasFactory.createJCas();
-        DUUILuaContext luaContext = new DUUILuaContext().withJsonLibrary();
-        DUUIComposer composer = new DUUIComposer().withLuaContext(luaContext);
-//        composer.addDriver(new DUUIUIMADriver());
-        composer.addDriver(new DUUIDockerDriver().withTimeout(10000));
-
-        composer.add(new DUUIDockerDriver.Component("easyocr-rest:latest").build());
-
-        composer.run(jcas);
-
-
-//        composer.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class)).build());
-//
-//        composer.add(new DUUIDockerDriver.Component("easyocr-rest:latest").withImageFetching().build());
-//        composer.add(new DUUIUIMADriver.Component(
-//                AnalysisEngineFactory.createEngineDescription(
-//                        XmiWriter.class
-//                        , XmiWriter.PARAM_TARGET_LOCATION, "./TEMP_files/TEMP_out"
-//                        , XmiWriter.PARAM_PRETTY_PRINT, true
-//                        , XmiWriter.PARAM_OVERWRITE, true
-//                        , XmiWriter.PARAM_VERSION, "1.1"
-//                        , XmiWriter.PARAM_COMPRESSION, "NONE"
-//                )
-//        ).build());
-//
-//        composer.run(
-//                CollectionReaderFactory.createReaderDescription(
-//                        TextReader.class,
-//                        TextReader.PARAM_LANGUAGE, "de",
-//                        TextReader.PARAM_SOURCE_LOCATION, "./TEMP_files/TEMP_in/*.txt"
-//                ),
-//                "easyocrDockerImageTest");
-//        composer.shutdown();
-    }
 
     @Test
     void testComposerEasyocr() throws Exception {
@@ -343,9 +320,6 @@ class DUUICoreReaderTest {
         composer.run(jcas, "processing-run");
 
     }
-
-    @Test
-    void testRequestImageTextBoundingBoxes() {}
 
     @Test
     void testImageReader() throws IOException {
@@ -373,6 +347,11 @@ class DUUICoreReaderTest {
         System.out.println(htmlString.toString());
     }
 
+    /**
+     * Reads in a serialized JCas object that contains an ImageBase64 annotation object and gets the image's width
+     * and height.
+     * @throws Exception
+     */
     @Test
     void testGetDimensionsFromImageCas() throws Exception {
         JCas jcas = CorePageUtils.readJcasFromXmi("TEMP_files/TEMP_out/448537.xmi");
@@ -390,8 +369,11 @@ class DUUICoreReaderTest {
 
         jcas.getDocumentText();
 
+        // Read in lua script to String
         String luaScript = Files.readString(Path.of("src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/io/reader/CoreReader/duui-easyocr-image-annotator.lua"));
-        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary(); // Makes the json library available in the lua script
+        // Make the JsonLibrary available to the lua execution environment (context)
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        // Using the lua script (String) and the lua context, build a java object that can execute the functions in the lua script
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(luaScript, "remote", ctx);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -399,32 +381,109 @@ class DUUICoreReaderTest {
         System.out.println(out.toString());
     }
 
+    /**
+     * Assumes that an easyocr-rest docker container is running on port 9714 locally
+     * @throws Exception
+     */
     @Test
-    void testDockerImageUsingRemoteDriver() throws Exception {
+    void testEasyocrRemoteDriver() throws Exception {
+        String inputDir = "TEMP_files/in/*.xmi";
+        String outputDir = "TEMP_files/easyocr-out";
+
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
                 .withLuaContext(ctx);
+
         composer.addDriver(new DUUIRemoteDriver());
+        composer.addDriver(new DUUIUIMADriver());
 
         composer.add(new DUUIRemoteDriver.Component("http://0.0.0.0:9714"));
+        composer.add(
+                new DUUIUIMADriver.Component(
+                        AnalysisEngineFactory.createEngineDescription(
+                                XmiWriter.class
+                                , XmiWriter.PARAM_TARGET_LOCATION, outputDir
+                                , XmiWriter.PARAM_PRETTY_PRINT, true
+                                , XmiWriter.PARAM_OVERWRITE, true
+                                , XmiWriter.PARAM_VERSION, "1.1"
+                                , XmiWriter.PARAM_COMPRESSION, "NONE"
+                        )
+                )
+        );
 
-        composer.run(CollectionReaderFactory.createReaderDescription(
-                XmiReader.class,
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
-                XmiReader.PARAM_LENIENT, true,
-                XmiReader.PARAM_SOURCE_LOCATION, "TEMP_files/TEMP_out/*.xmi"),
-                "run_serialize_json");
+        composer.run(
+                CollectionReaderFactory.createReaderDescription(
+                        XmiReader.class,
+                        XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                        XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                        XmiReader.PARAM_LENIENT, true,
+                        XmiReader.PARAM_SOURCE_LOCATION, inputDir),
+                        "run_serialize_json"
+        );
 
         composer.shutdown();
     }
 
+    @Test
+    void testEasyocrDockerDriver() throws Exception {
+        String inputDir = "TEMP_files/in/*.xmi";
+        String outputDir = "TEMP_files/easyocr-out";
 
+//        JCas jcas = JCasFactory.createJCas();
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        composer.addDriver(new DUUIDockerDriver().withTimeout(10000));
+        composer.addDriver(new DUUIUIMADriver());
+
+        composer.add(new DUUIDockerDriver.Component("easyocr-rest:latest").build());
+
+        composer.add(
+                new DUUIUIMADriver.Component(
+                        AnalysisEngineFactory.createEngineDescription(
+                                XmiWriter.class
+                                , XmiWriter.PARAM_TARGET_LOCATION, outputDir
+                                , XmiWriter.PARAM_PRETTY_PRINT, true
+                                , XmiWriter.PARAM_OVERWRITE, true
+                                , XmiWriter.PARAM_VERSION, "1.1"
+                                , XmiWriter.PARAM_COMPRESSION, "NONE"
+                        )
+                )
+        );
+
+        composer.run(DUUICoreReaderTest.inputDirCas(inputDir));
+        composer.shutdown();
+    }
+
+    @Test
+    void tempTest() throws Exception {
+        JCas jcas = JCasFactory.createJCas();
+
+        FloatArray topLeft = new FloatArray(jcas, 2);
+        topLeft.set(0, 12.0f);
+        topLeft.set(1, 223.0f);
+
+        FourPointBoundingBox bbox = new FourPointBoundingBox(jcas);
+        bbox.setTopLeft(topLeft);
+        bbox.addToIndexes();
+
+        FourPointBoundingBox bbox2 = JCasUtil.selectSingle(jcas, FourPointBoundingBox.class);
+
+        System.out.println(bbox2.getTopLeft());
+    }
+
+
+    /**
+     * Runs the ImageReader in a pipeline with input images and output xmi files
+     * @throws Exception
+     */
     @Test
     void testImageReaderInPipeline() throws Exception {
         String inputDir = "TEMP_files/TEMP_data/screens/4537";
-        String outputDir = "TEMP_files/TEMP_out";
+        String outputDir = "TEMP_files/out";
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -463,6 +522,8 @@ class DUUICoreReaderTest {
 
         DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
         composer.addDriver(uimaDriver);
+
+
 
 //        // Typesystem: CorePageTypes.xml
 //        TypeSystemDescription corePageTypes = TypeSystemDescriptionFactory
