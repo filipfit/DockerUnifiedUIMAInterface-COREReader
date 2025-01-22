@@ -15,7 +15,6 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.XmlCasDeserializer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
-import org.texttechnologylab.annotation.PolygonBoundingBox;
 import org.texttechnologylab.annotation.corepagetypes.*;
 import org.xml.sax.SAXException;
 
